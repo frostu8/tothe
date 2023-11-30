@@ -1,8 +1,30 @@
 [package]
 name = "tothe"
 version = "0.1.0"
+authors = ["Dante Helmore <frostu8@protonmail.com>"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+bevy = { version = "0.11", default-features = false, features = [
+    "bevy_core_pipeline",
+    "bevy_render",
+    "bevy_asset",
+    "bevy_sprite",
+    "bevy_winit",
+    "multi-threaded",
+    "png",
+    "x11",
+    "webgl2",
+] }
+bevy_ecs_ldtk = { version = "0.8", features = ["atlas"] }
+bevy_ecs_tilemap = { version = "0.11", features = ["atlas"] }
+bevy_rapier2d = "0.22"
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
+
