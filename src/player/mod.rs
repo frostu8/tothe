@@ -120,7 +120,7 @@ fn spawn_player(
             },
             ControllerBundle {
                 options: ControllerOptions {
-                    max_speed: 48.,
+                    max_speed: 64.,
                     friction: 4.,
                 },
                 ..Default::default()
