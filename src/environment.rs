@@ -35,6 +35,7 @@ pub struct CollisionBundle {
 fn initial_collision(i: IntGridCell) -> Collision {
     match i.value {
         1 => Collision::Solid,
+        2 => Collision::Solid,
         _ => Collision::Vacant,
     }
 }

@@ -1,5 +1,7 @@
 //! Camera follow and movement.
 
+pub mod hint;
+
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::ecs::query::QuerySingleError;
 use bevy::prelude::*;
@@ -7,6 +9,8 @@ use bevy::render::camera::ScalingMode;
 use bevy::transform::{systems::propagate_transforms, TransformSystem};
 
 use bevy_ecs_ldtk::{LdtkLevel, LevelSelection};
+
+//use std::time::Duration;
 
 use crate::player::LocalPlayer;
 
@@ -18,20 +22,31 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (update_player_follow, update_current_level))
+            .add_systems(Update, update_follow_lerp.in_set(CameraSystem::Tween))
             .add_systems(
                 PostUpdate,
                 // This doesn't seem like good form, but it's the best idea I
                 // have and the game jam is half over
                 (camera_follow, bind_camera, propagate_transforms)
                     .chain()
+                    .in_set(CameraSystem::FinalizePosition)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_systems(Startup, spawn_camera);
     }
 }
 
+/// Camera systems.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub enum CameraSystem {
+    /// Follow tween events.
+    Tween,
+    /// Finishes up with camera positioning.
+    FinalizePosition,
+}
+
 /// A special component that makes the camera follow the player, and also
-/// adjusts the LevelSelection resource.
+/// adjusts the LevelSelection resource, among a lot of other things.
 #[derive(Clone, Component, Debug, Default)]
 pub struct PlayerCamera;
 
@@ -42,12 +57,150 @@ pub struct Constrained {
     pub level_id: Option<String>,
 }
 
-/// The camera will follow a subject.
+// TODO: refactor `Follow` into `...`
+/// The camera will follow some subjects.
+///
+/// The camera will smoothly transition between subjects.
 ///
 /// # Note
 /// An entity with this component cannot follow entities with this component.
-#[derive(Clone, Component, Debug, Default)]
-pub struct Follow(Option<Entity>);
+/// That's just how it is.
+#[derive(Clone, Component, Debug)]
+pub struct Follow {
+    subjects: Vec<Entity>,
+    old_subjects: Vec<Entity>,
+    lerp: f32,
+    lerp_fn: fn(f32) -> f32,
+}
+
+impl Default for Follow {
+    fn default() -> Follow {
+        Follow {
+            subjects: Vec::new(),
+            old_subjects: Vec::new(),
+            lerp: 1.,
+            lerp_fn: parametric,
+        }
+    }
+}
+
+impl Follow {
+    /// The current list of subjects.
+    pub fn subjects(&self) -> &[Entity] {
+        &self.subjects
+    }
+
+    /// Updates the subjects.
+    pub fn update(&mut self, new_subjects: impl Into<Vec<Entity>>) {
+        let new_subjects = new_subjects.into();
+
+        if new_subjects != self.subjects {
+            // update lerp so is in sync
+            self.lerp = 1. - self.lerp;
+
+            self.old_subjects = new_subjects.into();
+            std::mem::swap(&mut self.old_subjects, &mut self.subjects);
+        }
+    }
+
+    /// Checks if the camera has subjects.
+    pub fn has_subjects(&self) -> bool {
+        self.subjects.len() > 0
+    }
+
+    /// Gets the target position of the camera.
+    ///
+    /// This returns `None` when [`Follow::midpoint`] returns `None`.
+    pub fn target<F>(&mut self, transform_query: &Query<&GlobalTransform, F>) -> Option<Vec2>
+    where
+        F: bevy::ecs::query::ReadOnlyWorldQuery,
+    {
+        if let Some(midpoint) = self.midpoint(transform_query) {
+            let lerp = (self.lerp_fn)(self.lerp);
+
+            if (lerp - 1.).abs() < f32::EPSILON {
+                // only use midpoint
+                return Some(midpoint);
+            }
+
+            // try to get old midpoint and lerp
+            if let Some(old_midpoint) = self.midpoint_old(transform_query) {
+                Some(old_midpoint.lerp(midpoint, lerp))
+            } else {
+                Some(midpoint)
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Gets the midpoint of all of the subjects.
+    ///
+    /// Returns `None` if there are no subjects.
+    ///
+    /// Takes a `&mut self` because this will automatically drop entities that
+    /// fail the transform query.
+    pub fn midpoint<F>(&mut self, transform_query: &Query<&GlobalTransform, F>) -> Option<Vec2>
+    where
+        F: bevy::ecs::query::ReadOnlyWorldQuery,
+    {
+        Follow::midpoint_generic(&mut self.subjects, transform_query)
+    }
+
+    /// Gets the midpoint of all of the old subjects.
+    ///
+    /// Returns `None` if there are no subjects.
+    ///
+    /// Takes a `&mut self` because this will automatically drop entities that
+    /// fail the transform query.
+    pub fn midpoint_old<F>(&mut self, transform_query: &Query<&GlobalTransform, F>) -> Option<Vec2>
+    where
+        F: bevy::ecs::query::ReadOnlyWorldQuery,
+    {
+        Follow::midpoint_generic(&mut self.old_subjects, transform_query)
+    }
+
+    fn midpoint_generic<F>(
+        self_subjects: &mut Vec<Entity>,
+        transform_query: &Query<&GlobalTransform, F>,
+    ) -> Option<Vec2>
+    where
+        F: bevy::ecs::query::ReadOnlyWorldQuery,
+    {
+        // very cold path, so we can just initialize a 0 length vec
+        let mut failures = Vec::new();
+
+        let subjects = self_subjects
+            .iter()
+            .copied()
+            .map(|entity| {
+                (
+                    entity,
+                    transform_query
+                        .get(entity)
+                        .map(|t| t.translation().truncate()),
+                )
+            })
+            .filter_map(|(entity, r)| r.map_err(|_| failures.push(entity)).ok())
+            .collect::<Vec<_>>();
+
+        // remove failed entities
+        self_subjects.retain(|e| !failures.contains(e));
+
+        let len = subjects.len();
+
+        subjects
+            .into_iter()
+            .reduce(std::ops::Add::add)
+            .map(|r| r / len as f32)
+    }
+}
+
+/// A parametric lerp fn.
+pub fn parametric(t: f32) -> f32 {
+    let sqt = t * t;
+    sqt / (2. * (sqt - t) + 1.)
+}
 
 /// A startup system that spawns the camera.
 fn spawn_camera(mut commands: Commands) {
@@ -81,7 +234,15 @@ fn update_player_follow(
     };
 
     for mut follow in camera_query.iter_mut() {
-        follow.0 = Some(player);
+        if !follow.has_subjects() {
+            follow.update(vec![player]);
+        }
+    }
+}
+
+fn update_follow_lerp(mut follow_query: Query<&mut Follow>, time: Res<Time>) {
+    for mut follow in follow_query.iter_mut() {
+        follow.lerp = (follow.lerp + time.delta_seconds()).min(1.);
     }
 }
 
@@ -101,21 +262,17 @@ fn update_current_level(
 }
 
 fn camera_follow(
-    mut camera_query: Query<(&mut Transform, &Follow)>,
+    mut camera_query: Query<(&mut Transform, &mut Follow)>,
     transform_query: Query<&GlobalTransform, Without<Follow>>,
 ) {
-    for (mut transform, follow) in camera_query.iter_mut() {
-        // find subject
-        let Some(subject) = follow.0 else {
-            continue;
-        };
-
-        let Ok(subject) = transform_query.get(subject) else {
+    for (mut transform, mut follow) in camera_query.iter_mut() {
+        // find target
+        let Some(target) = follow.target(&transform_query) else {
             continue;
         };
 
         // mimic transform
-        *transform = Transform::from_translation(subject.translation());
+        *transform = Transform::from_translation(target.extend(0.));
     }
 }
 

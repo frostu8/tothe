@@ -5,18 +5,21 @@ use bevy::prelude::*;
 use std::ops::Range;
 use std::time::Duration;
 
-use crate::{GameAssets, GameState};
-use crate::enemy::Hostility;
 use super::{ContactBehavior, HitEvent};
+use crate::enemy::Hostility;
+use crate::{GameAssets, GameState};
 
 /// Residue effects.
 pub struct ResiduePlugin;
 
 impl Plugin for ResiduePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Update, update_residue)
-            .add_systems(Update, create_residue.run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, update_residue).add_systems(
+            Update,
+            create_residue
+                .run_if(in_state(GameState::InGame))
+                .after(super::ProjectileSystem::Event),
+        );
     }
 }
 
@@ -92,4 +95,3 @@ fn create_residue(
         }
     }
 }
-

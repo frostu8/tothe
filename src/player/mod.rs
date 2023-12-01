@@ -11,9 +11,10 @@ use std::time::Duration;
 
 use crate::{
     physics::{self, Grounded},
+    projectile::spawner::{Charge, Spawner},
     GameAssets, GameState,
 };
-use controller::{ControllerBundle, ControllerOptions, CoyoteJump};
+use controller::{ControllerBundle, ControllerOptions, CoyoteJump, UseGamepad};
 use respawn::Respawn;
 
 /// A player plugin.
@@ -50,6 +51,9 @@ fn spawn_player(mut commands: Commands, assets: Res<GameAssets>) {
             CollisionGroups::new(physics::COLLISION_GROUP_FRIENDLY, Group::all()),
             Grounded::default(),
             CoyoteJump::default(),
+            UseGamepad::default(),
+            Spawner::default(),
+            Charge::new(Duration::from_millis(800), 1).as_full(),
             Friction {
                 coefficient: 0.,
                 combine_rule: CoefficientCombineRule::Multiply,
@@ -57,9 +61,11 @@ fn spawn_player(mut commands: Commands, assets: Res<GameAssets>) {
             ControllerBundle {
                 options: ControllerOptions {
                     max_speed: 64. * 1.5,
+                    deadzone: 0.3,
                     friction: 4.,
                     jump_buffer: Duration::from_millis(100),
                     jump_height: 52.,
+                    projectile_speed: 256.,
                 },
                 ..Default::default()
             },

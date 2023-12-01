@@ -13,13 +13,18 @@ pub const COLLISION_GROUP_FRIENDLY: Group = Group::GROUP_2;
 pub const COLLISION_GROUP_HOSTILE: Group = Group::GROUP_3;
 /// Collision for projectiles.
 pub const COLLISION_GROUP_PROJECTILE: Group = Group::GROUP_4;
+/// Collision for triggers.
+pub const COLLISION_GROUP_TRIGGER: Group = Group::GROUP_5;
 
 /// Physics plugin.
 pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, check_grounded.in_set(PhysicsSet::CheckGrounded));
+        app.add_systems(
+            FixedUpdate,
+            check_grounded.in_set(PhysicsSet::CheckGrounded),
+        );
     }
 }
 

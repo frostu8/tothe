@@ -1,10 +1,13 @@
 //! Projectile things.
 
 pub mod residue;
+pub mod spawner;
 
 use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
+
+use std::time::Duration;
 
 use crate::enemy::Hostility;
 use crate::physics;
@@ -15,10 +18,22 @@ pub struct ProjectilePlugin;
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HitEvent>()
-            .add_systems(PreUpdate, create_hit_events)
-            .add_systems(Update, despawn_absorbed_projectiles)
+            .add_event::<DespawnEvent>()
+            .add_systems(
+                Update,
+                (create_hit_events, synchronize_your_death_watches_lads)
+                    .in_set(ProjectileSystem::Event),
+            )
+            .add_systems(Update, despawn_projectiles)
             .add_systems(PostUpdate, (update_collision_groups, update_sprite_color));
     }
+}
+
+/// Projectile systems.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub enum ProjectileSystem {
+    /// Event systems
+    Event,
 }
 
 /// Projectile bundle.
@@ -55,7 +70,10 @@ impl Default for ProjectileBundle {
 
 /// A single projectile.
 #[derive(Clone, Component, Debug, Default)]
-pub struct Projectile;
+pub struct Projectile {
+    /// The initial speed of the projectile.
+    initial_speed: f32,
+}
 
 /// Determines the despawn behavior of projectiles.
 ///
@@ -86,6 +104,28 @@ impl ContactBehavior {
     }
 }
 
+/// Despawns a projectile if it lives for too long.
+///
+/// Although this is a relatively generic and useful component, is included in
+/// the projectile mod for simplicity, as it is most relevant when creating
+/// empheremal projectiles.
+#[derive(Clone, Component, Debug)]
+pub struct TimeToLive(Timer);
+
+impl TimeToLive {
+    /// Creates a new `TimeToLive`.
+    pub fn new(duration: Duration) -> TimeToLive {
+        TimeToLive(Timer::new(duration, TimerMode::Once))
+    }
+}
+
+impl Default for TimeToLive {
+    /// Initializes a default `TimeToLive` for 60 seconds.
+    fn default() -> TimeToLive {
+        TimeToLive::new(Duration::from_secs(60))
+    }
+}
+
 /// A contact between a projectile and an entity occured.
 #[derive(Debug, Event)]
 pub struct HitEvent {
@@ -97,6 +137,27 @@ pub struct HitEvent {
     pub entity: Entity,
     /// The result of the interaction.
     pub result: ContactBehavior,
+}
+
+/// A projectile has despawned after living for too long.
+#[derive(Debug, Event)]
+pub struct DespawnEvent {
+    /// The projectile.
+    pub projectile: Entity,
+}
+
+fn synchronize_your_death_watches_lads(
+    mut time_to_live_query: Query<(Entity, &mut TimeToLive)>,
+    mut despawn_events: EventWriter<DespawnEvent>,
+    time: Res<Time>,
+) {
+    for (entity, mut time_to_live) in time_to_live_query.iter_mut() {
+        time_to_live.0.tick(time.delta());
+
+        if time_to_live.0.finished() {
+            despawn_events.send(DespawnEvent { projectile: entity });
+        }
+    }
 }
 
 fn update_collision_groups(
@@ -177,13 +238,18 @@ fn create_hit_events(
     }
 }
 
-fn despawn_absorbed_projectiles(
+fn despawn_projectiles(
     mut commands: Commands,
     mut hit_events: EventReader<HitEvent>,
+    mut despawn_events: EventReader<DespawnEvent>,
 ) {
     for ev in hit_events.iter() {
         if matches!(ev.result, ContactBehavior::Absorb) {
             commands.entity(ev.projectile).despawn_recursive();
         }
+    }
+
+    for ev in despawn_events.iter() {
+        commands.entity(ev.projectile).despawn_recursive();
     }
 }

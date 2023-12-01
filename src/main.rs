@@ -1,3 +1,4 @@
+use bevy::input::gamepad::{AxisSettings, GamepadSettings};
 use bevy::prelude::*;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 
@@ -44,6 +45,11 @@ fn main() {
             level_spawn_behavior: LevelSpawnBehavior::UseWorldTranslation {
                 load_level_neighbors: true,
             },
+            ..Default::default()
+        })
+        .insert_resource(GamepadSettings {
+            default_axis_settings: AxisSettings::new(-1., -0.3, 0.3, 1., 0.05)
+                .expect("valid axis settings"),
             ..Default::default()
         })
         .run();

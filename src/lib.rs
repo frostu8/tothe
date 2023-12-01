@@ -6,6 +6,7 @@ pub mod environment;
 pub mod physics;
 pub mod player;
 pub mod projectile;
+pub mod ui;
 //pub mod interactions;
 
 use bevy::prelude::*;
@@ -22,9 +23,11 @@ impl Plugin for GamePlugin {
         app.add_state::<GameState>()
             .add_plugins((
                 camera::CameraPlugin,
+                camera::hint::CameraHintPlugin,
                 environment::EnvironmentPlugin,
                 projectile::ProjectilePlugin,
                 projectile::residue::ResiduePlugin,
+                projectile::spawner::ProjectileSpawnerPlugin,
                 physics::PhysicsPlugin,
                 player::PlayerPlugin,
                 player::controller::ControllerPlugin,
