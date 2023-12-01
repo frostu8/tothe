@@ -1,5 +1,7 @@
 //! Projectile things.
 
+pub mod residue;
+
 use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
@@ -14,6 +16,7 @@ impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HitEvent>()
             .add_systems(PreUpdate, create_hit_events)
+            .add_systems(Update, despawn_absorbed_projectiles)
             .add_systems(PostUpdate, (update_collision_groups, update_sprite_color));
     }
 }
@@ -171,5 +174,16 @@ fn create_hit_events(
             entity,
             result: projectile_behavior.and(entity_behavior),
         });
+    }
+}
+
+fn despawn_absorbed_projectiles(
+    mut commands: Commands,
+    mut hit_events: EventReader<HitEvent>,
+) {
+    for ev in hit_events.iter() {
+        if matches!(ev.result, ContactBehavior::Absorb) {
+            commands.entity(ev.projectile).despawn_recursive();
+        }
     }
 }

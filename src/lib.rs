@@ -24,6 +24,7 @@ impl Plugin for GamePlugin {
                 camera::CameraPlugin,
                 environment::EnvironmentPlugin,
                 projectile::ProjectilePlugin,
+                projectile::residue::ResiduePlugin,
                 physics::PhysicsPlugin,
                 player::PlayerPlugin,
                 player::controller::ControllerPlugin,
