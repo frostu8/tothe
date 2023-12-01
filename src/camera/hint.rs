@@ -18,8 +18,8 @@ pub struct CameraHintPlugin;
 
 impl Plugin for CameraHintPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (create_hint_entity, do_hint_sensor))
-            .add_systems(Update, debug_draw_hint_entity);
+        app.add_systems(Update, (create_hint_entity, do_hint_sensor));
+        //.add_systems(Update, debug_draw_hint_entity);
     }
 
     fn finish(&self, app: &mut App) {
