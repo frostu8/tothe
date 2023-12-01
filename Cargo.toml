@@ -11,11 +11,13 @@ bevy = { version = "0.11", default-features = false, features = [
     "bevy_asset",
     "bevy_sprite",
     "bevy_winit",
+    "bevy_gizmos",
     "multi-threaded",
     "png",
     "x11",
     "webgl2",
 ] }
+bevy_asset_loader = { version = "0.17", features = ["2d"] }
 bevy_ecs_ldtk = { version = "0.8", features = ["atlas"] }
 bevy_ecs_tilemap = { version = "0.11", features = ["atlas"] }
 bevy_rapier2d = "0.22"
