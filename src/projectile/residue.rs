@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use std::ops::Range;
 use std::time::Duration;
 
-use super::{ContactBehavior, HitEvent};
+use super::{Projectile, ProjectileSystem};
 use crate::enemy::Hostility;
 use crate::{GameAssets, GameState};
 
@@ -18,7 +18,9 @@ impl Plugin for ResiduePlugin {
             Update,
             create_residue
                 .run_if(in_state(GameState::InGame))
-                .after(super::ProjectileSystem::Event),
+                .in_set(ProjectileSystem::Despawn)
+                .after(ProjectileSystem::Event)
+                .before(super::despawn_projectiles),
         );
     }
 }
@@ -69,29 +71,25 @@ fn update_residue(
 
 fn create_residue(
     mut commands: Commands,
-    subject_query: Query<(&GlobalTransform, &Hostility)>,
-    mut hit_events: EventReader<HitEvent>,
+    projectile_query: Query<(&GlobalTransform, &Hostility, &Projectile)>,
     assets: Res<GameAssets>,
 ) {
-    for ev in hit_events.iter() {
-        if matches!(ev.result, ContactBehavior::Absorb) {
-            // create residue at location
-            let Ok((location, hostility)) = subject_query.get(ev.projectile) else {
-                continue;
-            };
-
-            commands.spawn((
-                SpriteSheetBundle {
-                    texture_atlas: assets.projectile_sheet.clone(),
-                    sprite: TextureAtlasSprite {
-                        color: hostility.color(),
-                        ..TextureAtlasSprite::new(18)
-                    },
-                    transform: Transform::from_translation(location.translation()),
-                    ..Default::default()
-                },
-                Residue::new(18..20, Duration::from_millis(100)),
-            ));
+    for (location, hostility, projectile) in projectile_query.iter() {
+        if !projectile.absorbed {
+            continue;
         }
+
+        commands.spawn((
+            SpriteSheetBundle {
+                texture_atlas: assets.projectile_sheet.clone(),
+                sprite: TextureAtlasSprite {
+                    color: hostility.color(),
+                    ..TextureAtlasSprite::new(18)
+                },
+                transform: Transform::from_translation(location.translation()),
+                ..Default::default()
+            },
+            Residue::new(18..20, Duration::from_millis(100)),
+        ));
     }
 }

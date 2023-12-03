@@ -2,12 +2,10 @@
 
 use bevy::prelude::*;
 
-use bevy_rapier2d::prelude::*;
-
 use std::time::Duration;
 
-use super::{Projectile, ProjectileBundle, TimeToLive};
-use crate::{GameAssets, GameState};
+use super::prefab::{CreateProjectile, ProjectilePrefab};
+use crate::GameState;
 
 pub struct ProjectileSpawnerPlugin;
 
@@ -125,7 +123,6 @@ fn spawn_projectile(
     mut commands: Commands,
     mut projectile_spawns: EventReader<SpawnProjectile>,
     mut spawner_query: Query<(&GlobalTransform, &Spawner, Option<&mut Charge>)>,
-    assets: Res<GameAssets>,
 ) {
     for ev in projectile_spawns.iter() {
         let Ok((transform, spawner, charge)) = spawner_query.get_mut(ev.subject) else {
@@ -143,44 +140,12 @@ fn spawn_projectile(
         };
 
         if spawn {
-            create_projectile(
-                &mut commands,
-                &*assets,
+            commands.add(CreateProjectile::new(
+                ProjectilePrefab::QuarterRest {
+                    initial_velocity: spawner.initial_velocity,
+                },
                 transform.translation(),
-                spawner,
-                ev,
-            );
+            ));
         }
     }
-}
-
-fn create_projectile(
-    commands: &mut Commands,
-    assets: &GameAssets,
-    location: Vec3,
-    spawner: &Spawner,
-    _spawn_event: &SpawnProjectile,
-) {
-    // produce a rest bullet
-    let rot = spawner.initial_velocity.y.atan2(spawner.initial_velocity.x);
-    commands.spawn((
-        ProjectileBundle {
-            transform: Transform::from_translation(location)
-                * Transform::from_rotation(Quat::from_axis_angle(Vec3::Z, rot)),
-            gravity_scale: GravityScale(0.),
-            projectile: Projectile {
-                initial_speed: spawner.initial_velocity.length(),
-            },
-            collider: Collider::cuboid(2., 2.),
-            ..Default::default()
-        },
-        Velocity {
-            linvel: spawner.initial_velocity,
-            angvel: 0.,
-        },
-        assets.projectile_sheet.clone(),
-        TextureAtlasSprite::new(0),
-        VisibilityBundle::default(),
-        TimeToLive::default(),
-    ));
 }

@@ -2,12 +2,12 @@
 
 pub mod camera;
 pub mod enemy;
-pub mod environment;
+pub mod interactions;
+pub mod level;
 pub mod physics;
 pub mod player;
 pub mod projectile;
-pub mod ui;
-//pub mod interactions;
+//pub mod ui;
 
 use bevy::prelude::*;
 
@@ -24,7 +24,8 @@ impl Plugin for GamePlugin {
             .add_plugins((
                 camera::CameraPlugin,
                 camera::hint::CameraHintPlugin,
-                environment::EnvironmentPlugin,
+                level::LevelPlugin,
+                level::pipe::LevelPipePlugin,
                 projectile::ProjectilePlugin,
                 projectile::residue::ResiduePlugin,
                 projectile::spawner::ProjectileSpawnerPlugin,
@@ -32,6 +33,7 @@ impl Plugin for GamePlugin {
                 player::PlayerPlugin,
                 player::controller::ControllerPlugin,
                 player::respawn::RespawnPlugin,
+                interactions::InteractionPlugins,
             ))
             .add_loading_state(
                 LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::InGame),

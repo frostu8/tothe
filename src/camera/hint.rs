@@ -169,6 +169,7 @@ fn do_hint_sensor(
     }
 }
 
+#[allow(dead_code)]
 fn debug_draw_hint_entity(
     hints_query: Query<&CameraHintSensor>,
     transform_query: Query<&GlobalTransform>,

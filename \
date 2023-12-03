@@ -84,7 +84,8 @@ impl Default for ProjectileBundle {
 /// A single projectile.
 #[derive(Clone, Component, Debug, Default)]
 pub struct Projectile {
-    //pub initial_speed: f32,
+    /// The initial speed of the projectile.
+    pub initial_speed: f32,
     /// Whether the projectile is being absorbed this frame.
     ///
     /// Set this to false to prevent the projectile from being absorbed. This

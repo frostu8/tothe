@@ -1,4 +1,6 @@
-//! Environment stuff.
+//! Level stuff.
+
+pub mod pipe;
 
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
@@ -12,9 +14,9 @@ use std::collections::HashMap;
 
 use crate::physics;
 
-pub struct EnvironmentPlugin;
+pub struct LevelPlugin;
 
-impl Plugin for EnvironmentPlugin {
+impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (update_collision_map, create_colliders).chain());
     }
