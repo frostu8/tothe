@@ -14,10 +14,12 @@ use std::collections::HashSet;
 
 use crate::interactions::{
     acceptor::{Acceptor, AcceptorBundle},
-    pipe::{Buldge, Junction},
+    Buldge, Junction,
 };
 
 /// Creates pipes from LDTK levels.
+///
+/// This plugin was agonizing to write.
 pub struct LevelPipePlugin;
 
 impl Plugin for LevelPipePlugin {
