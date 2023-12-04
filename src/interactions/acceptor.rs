@@ -126,15 +126,17 @@ fn accept_projectiles(
                 ));
 
                 // create new signal
-                let signal = commands.spawn((
-                    TransformBundle::default(),
-                    Signal::at(
-                        SignalData {
-                            hostility: proj.hostility.clone(),
-                        },
-                        me,
-                    ),
-                )).id();
+                let signal = commands
+                    .spawn((
+                        TransformBundle::default(),
+                        Signal::at(
+                            SignalData {
+                                hostility: proj.hostility.clone(),
+                            },
+                            me,
+                        ),
+                    ))
+                    .id();
                 signal_events.send(SignalEvent {
                     receiver: me,
                     sender: me,

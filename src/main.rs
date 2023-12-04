@@ -1,6 +1,7 @@
 use bevy::input::gamepad::{AxisSettings, GamepadSettings};
 use bevy::prelude::*;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
+use bevy::ecs::schedule::{ScheduleBuildSettings, LogLevel};
 
 use bevy_ecs_ldtk::prelude::*;
 
@@ -31,9 +32,18 @@ fn main() {
                     },
                 }),
         )
+        .edit_schedule(
+            Update,
+            |schedule| {
+                schedule.set_build_settings(ScheduleBuildSettings {
+                    ambiguity_detection: LogLevel::Warn,
+                    ..Default::default()
+                });
+            },
+        )
         .add_plugins(LdtkPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(8.0))
-        .add_plugins(RapierDebugRenderPlugin::default())
+        //.add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins(GamePlugin)
         .insert_resource(LevelSelection::Identifier("Level_0".into()))

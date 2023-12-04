@@ -1,6 +1,7 @@
 //! How nodes can communicate with each other.
 
 pub mod acceptor;
+pub mod generator;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::system::SystemParam;
@@ -8,8 +9,8 @@ use bevy::prelude::*;
 
 use crate::enemy::Hostility;
 
-use std::sync::Arc;
 use std::borrow::Cow;
+use std::sync::Arc;
 
 /// All interaction plugins.
 pub struct InteractionPlugins;
@@ -19,12 +20,16 @@ impl PluginGroup for InteractionPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(PipePlugin)
             .add(acceptor::AcceptorPlugin)
+            .add(generator::GeneratorPlugin)
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, SystemSet)]
 pub enum InteractionSystem {
     /// Systems that process signals.
     ReceiveSignal,
+    /// Systems that move signals around.
+    TravelSignal,
 }
 
 /// A single instance of a signal.
@@ -87,14 +92,17 @@ pub struct PipePlugin;
 
 impl Plugin for PipePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .register_type::<Junction>()
+        app.register_type::<Junction>()
             .add_event::<SignalEvent>()
-            .add_systems(PreUpdate, handle_signal_events)
+            .add_systems(
+                PreUpdate,
+                handle_signal_events.in_set(InteractionSystem::ReceiveSignal),
+            )
             .add_systems(
                 Update,
                 (signal_travel, update_signal_transform)
-                    .chain(),
+                    .chain()
+                    .in_set(InteractionSystem::TravelSignal),
             )
             .add_systems(Update, debug_draw_pipes);
     }
@@ -132,9 +140,7 @@ pub struct Pipe {
 impl Pipe {
     /// Creates a new pipe with [`Pipe::size`] initialized to all ones.
     pub fn new(receiver: Entity) -> Pipe {
-        Pipe {
-            receiver,
-        }
+        Pipe { receiver }
     }
 }
 
@@ -186,7 +192,7 @@ impl<'w, 's> BuldgeQuery<'w, 's> {
             let index = index as usize;
 
             // lerp
-            (graph[index] * (1. - part)) + (graph[index+1] * part)
+            (graph[index] * (1. - part)) + (graph[index + 1] * part)
         } else {
             graph[0]
         }
@@ -211,9 +217,7 @@ impl<'w, 's> BuldgeQuery<'w, 's> {
                 // incoming only
                 Cow::Borrowed(&to.incoming)
             }
-            (Err(_), Err(_)) => {
-                Cow::Borrowed(&[1.])
-            }
+            (Err(_), Err(_)) => Cow::Borrowed(&[1.]),
         }
     }
 }
@@ -323,12 +327,7 @@ fn update_signal_transform(
 
         transform.scale = Vec3::splat(scale);
 
-        gizmos.circle(
-            transform.translation,
-            Vec3::Z,
-            scale * 4.,
-            Color::BLUE,
-        );
+        gizmos.circle(transform.translation, Vec3::Z, scale * 4., Color::BLUE);
     }
 }
 
@@ -379,4 +378,3 @@ fn debug_draw_pipes(
         visited.insert(entity);
     }
 }
-

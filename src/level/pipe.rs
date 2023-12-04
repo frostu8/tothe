@@ -9,13 +9,15 @@ use bevy_ecs_tilemap::{
 };
 use bevy_rapier2d::prelude::*;
 
-use std::convert::identity;
 use std::collections::HashSet;
+use std::convert::identity;
 
 use crate::interactions::{
     acceptor::{Acceptor, AcceptorBundle},
+    generator::Generator,
     Buldge, Junction,
 };
+use crate::projectile::prefab::ProjectilePrefab;
 
 /// Creates pipes from LDTK levels.
 ///
@@ -114,6 +116,18 @@ pub enum Direction {
     Down,
 }
 
+impl Direction {
+    /// Gets the vector of the direction.
+    pub fn axis(self) -> Vec2 {
+        match self {
+            Direction::Right => Vec2::X,
+            Direction::Up => Vec2::Y,
+            Direction::Left => -Vec2::X,
+            Direction::Down => -Vec2::Y,
+        }
+    }
+}
+
 /// A pipe segment.
 #[derive(Clone, Copy, Component, Debug, Default, PartialEq, Eq, Hash)]
 pub enum PipeSegment {
@@ -178,19 +192,38 @@ fn merge_pipes_down(
 
             // add exciting stuff
             match pipe_entity {
-                PipeEntity::ChuteVertical(_) => {
+                PipeEntity::ChuteVertical(dir) => {
                     commands.entity(entity).insert((
                         AcceptorBundle {
                             collider: Collider::cuboid(6., 8.),
                             acceptor: Acceptor,
+                        },
+                        Generator {
+                            prefab: ProjectilePrefab::QuarterNote {
+                                // TODO: magic number
+                                initial_velocity: Vec2::new(*dir, 0.) * 128.,
+                            },
+                            location: Vec3::new(9f32.copysign(*dir), 0., 0.),
                         },
                         Name::new("ChuteVertical"),
                         Junction::default(),
                         Buldge::no_cover(),
                     ));
                 }
-                PipeEntity::Exit(_direction) => {
+                PipeEntity::Exit(direction) => {
+                    let location = match direction {
+                        Direction::Left => Vec3::new(-8., -6., 0.),
+                        _ => todo!(),
+                    };
+
                     commands.entity(entity).insert((
+                        Generator {
+                            prefab: ProjectilePrefab::BeamNote {
+                                // TODO: magic number
+                                initial_direction: direction.axis().x * 32.,
+                            },
+                            location,
+                        },
                         Name::new("Exit"),
                         Junction::default(),
                         Buldge::no_cover(),
@@ -206,10 +239,7 @@ fn merge_pipes_down(
 
 // lol idc anymore I just want this to work
 fn build_pipe_network(
-    mut param_set: ParamSet<(
-        Query<&mut Junction>,
-        Query<&Parent, Changed<Junction>>,
-    )>,
+    mut param_set: ParamSet<(Query<&mut Junction>, Query<&Parent, Changed<Junction>>)>,
     //mut junctions_query: Query<&mut Junction>,
     colors_query: Query<&PipeSegment>,
     //added_junctions: Query<&Parent, Added<Junction>>,
@@ -218,23 +248,20 @@ fn build_pipe_network(
     // look for changes
     let mut changed_layers = HashSet::new();
 
-    changed_layers.extend(param_set
-        .p1()
-        .iter()
-        .map(|p| p.get())
-        .filter(|&p| layers_query.contains(p)));
+    changed_layers.extend(
+        param_set
+            .p1()
+            .iter()
+            .map(|p| p.get())
+            .filter(|&p| layers_query.contains(p)),
+    );
 
     for tiles in layers_query.iter() {
         for y in 0..tiles.size.y {
             for x in 0..tiles.size.x {
                 let pos = TilePos::new(x, y);
 
-                build_junction(
-                    &mut param_set.p0(),
-                    &colors_query,
-                    tiles,
-                    pos
-                );
+                build_junction(&mut param_set.p0(), &colors_query, tiles, pos);
             }
         }
     }

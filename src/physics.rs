@@ -37,7 +37,14 @@ pub enum PhysicsSet {
 /// A component that tracks whether the entity is grounded or not.
 #[derive(Copy, Clone, Component, Debug, Default)]
 pub struct Grounded {
-    pub grounded: bool,
+    grounded: bool,
+}
+
+impl Grounded {
+    /// Checks if the entity is grounded.
+    pub fn is_grounded(&self) -> bool {
+        self.grounded
+    }
 }
 
 fn check_grounded(mut player_query: Query<(Entity, &mut Grounded)>, physics: Res<RapierContext>) {

@@ -163,7 +163,7 @@ fn tick_coyote_jump_timer(
         timer.tick(time.delta());
 
         if grounded.is_changed() {
-            if grounded.grounded {
+            if grounded.is_grounded() {
                 timer.unlock();
             } else {
                 // start timer
@@ -323,7 +323,7 @@ fn apply_movement(
         );
 
         let jump = (controller.jump && coyote_jump.can_jump())
-            || (controller.buffered_jump() && grounded.grounded);
+            || (controller.buffered_jump() && grounded.is_grounded());
 
         // apply jump
         if jump {
