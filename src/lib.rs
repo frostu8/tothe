@@ -54,6 +54,10 @@ pub struct GameAssets {
     #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 6, rows = 4))]
     #[asset(path = "projectiles/projectiles.png")]
     pub projectile_sheet: Handle<TextureAtlas>,
+    #[asset(path = "signal/signal_matte.png")]
+    pub signal_matte: Handle<Image>,
+    #[asset(path = "signal/signal_mask.png")]
+    pub signal_mask: Handle<Image>,
 }
 
 /// Game state.

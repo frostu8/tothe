@@ -128,7 +128,7 @@ fn accept_projectiles(
                 // create new signal
                 let signal = commands
                     .spawn((
-                        TransformBundle::default(),
+                        SpatialBundle::default(),
                         Signal::at(
                             SignalData {
                                 hostility: proj.hostility.clone(),
