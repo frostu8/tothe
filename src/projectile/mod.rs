@@ -37,6 +37,7 @@ impl Plugin for ProjectilePlugin {
             .add_systems(
                 Update,
                 (bounce_projectiles, animate_squish)
+                    .in_set(ProjectileSystem::Bounce)
                     .after(ProjectileSystem::Event)
                     .before(ProjectileSystem::Despawn),
             )
@@ -50,6 +51,8 @@ impl Plugin for ProjectilePlugin {
 pub enum ProjectileSystem {
     /// Event systems
     Event,
+    /// Bouncing projectiles which may override [`Projctile::absorbed`].
+    Bounce,
     /// Despawns projectiles.
     ///
     /// Update [`Projectile::absorbed`] before this systme.
@@ -127,6 +130,10 @@ impl ContactBehavior {
         }
     }
 }
+
+/// Makes a projectile not hurt enemies or players.
+#[derive(Clone, Component, Debug, Default)]
+pub struct NoHurt;
 
 /// Makes a projectile sway on a sine wave.
 #[derive(Clone, Component, Debug)]
@@ -313,11 +320,13 @@ fn animate_squish(mut squish_query: Query<(&mut Transform, &mut Squish)>, time: 
 
 fn update_collision_groups(
     mut projectile_query: Query<
-        (&Hostility, &mut CollisionGroups),
+        (&Hostility, &mut CollisionGroups, Option<&NoHurt>),
         (With<Projectile>, Changed<Hostility>),
     >,
 ) {
-    for (hostility, mut collision_groups) in projectile_query.iter_mut() {
+    for (hostility, mut collision_groups, no_hurt) in projectile_query.iter_mut() {
+        let no_hurt = no_hurt.is_some();
+
         match *hostility {
             Hostility::Friendly => {
                 *collision_groups = CollisionGroups::new(
@@ -331,6 +340,11 @@ fn update_collision_groups(
                     physics::COLLISION_GROUP_SOLID | physics::COLLISION_GROUP_FRIENDLY,
                 );
             }
+        }
+
+        if no_hurt {
+            collision_groups.filters &= !physics::COLLISION_GROUP_FRIENDLY;
+            collision_groups.filters &= !physics::COLLISION_GROUP_HOSTILE;
         }
     }
 }

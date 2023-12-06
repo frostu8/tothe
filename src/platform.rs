@@ -7,6 +7,10 @@ use bevy_rapier2d::prelude::*;
 use bevy_ecs_ldtk::{
     app::{LdtkEntity, LdtkEntityAppExt as _},
     ldtk::{ldtk_fields::LdtkFields, LayerInstance, TilesetDefinition},
+    utils::{
+        ldtk_grid_coords_to_translation_relative_to_tile_layer,
+        ldtk_pixel_coords_to_translation_pivoted,
+    },
     EntityInstance,
 };
 
@@ -96,20 +100,29 @@ impl LdtkEntity for MovingPlatformBundle {
         _asset_server: &AssetServer,
         _texture_atlases: &mut Assets<TextureAtlas>,
     ) -> Self {
-        let mut target_grid_position = entity_instance
-            .get_point_field("Target")
+        let offset = Vec2::new(
+            entity_instance.width as f32 / 2.,
+            entity_instance.height as f32 / 2.,
+        ) - Vec2::new(0., 8.);
+
+        let start_position = ldtk_pixel_coords_to_translation_pivoted(
+            entity_instance.px,
+            layer_instance.c_hei,
+            IVec2::new(entity_instance.width, entity_instance.height),
+            entity_instance.pivot,
+        );
+
+        let end_grid_position = entity_instance
+            .get_point_field("EndPoint")
             .expect("valid target")
             .clone();
 
-        // convert to bevy coordinates
-        target_grid_position.y = layer_instance.c_hei - target_grid_position.y - 1;
-
-        let target_pixel_position = target_grid_position * layer_instance.grid_size
-            + IVec2::splat(layer_instance.grid_size / 2);
-        let target_position = Vec2::new(
-            target_pixel_position.x as f32,
-            target_pixel_position.y as f32,
+        let end_position = ldtk_grid_coords_to_translation_relative_to_tile_layer(
+            end_grid_position.into(),
+            layer_instance.c_hei,
+            IVec2::splat(layer_instance.grid_size),
         );
+        let end_position = end_position + offset;
 
         // get gear
         let gear_position = entity_instance
@@ -120,7 +133,7 @@ impl LdtkEntity for MovingPlatformBundle {
 
         MovingPlatformBundle {
             iid: entity_instance.into(),
-            moving_platform: MovingPlatform::new(target_position, gear_position),
+            moving_platform: MovingPlatform::new(start_position, end_position, gear_position),
             ..Default::default()
         }
     }
@@ -135,12 +148,9 @@ pub struct MovingPlatform {
     /// world units per second.
     pub speed: f32,
     /// The original position of the platform in local space.
-    ///
-    /// This will be overrided with the current [`Tranform`] when this entity
-    /// spawns.
-    pub original_location: Vec2,
+    pub start_location: Vec2,
     /// The target location of the moving platform in local space.
-    pub target_location: Vec2,
+    pub end_location: Vec2,
     /// Target location in between the start and final destination. Must be a
     /// value between `0.` and `1.`.
     pub lerp: f32,
@@ -151,10 +161,15 @@ pub struct MovingPlatform {
 }
 
 impl MovingPlatform {
-    /// Creates a new `MovingPlatform` with a target location and gear pos.
-    pub fn new(target_location: Vec2, gear_location: Option<usize>) -> MovingPlatform {
+    /// Creates a new `MovingPlatform` with a start, end location and gear pos.
+    pub fn new(
+        start_location: Vec2,
+        end_location: Vec2,
+        gear_location: Option<usize>,
+    ) -> MovingPlatform {
         MovingPlatform {
-            target_location,
+            start_location,
+            end_location,
             gear_location,
             ..Default::default()
         }
@@ -169,8 +184,8 @@ impl Default for MovingPlatform {
     fn default() -> MovingPlatform {
         MovingPlatform {
             speed: 160.,
-            original_location: Vec2::default(),
-            target_location: Vec2::default(),
+            start_location: Vec2::default(),
+            end_location: Vec2::default(),
             lerp: 0.,
             gear_location: None,
             gear_phase: 0,
@@ -193,7 +208,7 @@ fn on_added_platform(
     mut added_platforms: Query<(&Transform, &mut MovingPlatform), Added<MovingPlatform>>,
 ) {
     for (transform, mut platform) in added_platforms.iter_mut() {
-        platform.original_location = transform.translation.truncate();
+        platform.start_location = transform.translation.truncate();
     }
 }
 
@@ -309,8 +324,8 @@ fn move_platform(
     for (mut transform, mut platform, mut acc) in platforms_query.iter_mut() {
         let mut current = transform.translation.truncate();
         let target = platform
-            .original_location
-            .lerp(platform.target_location, platform.lerp);
+            .start_location
+            .lerp(platform.end_location, platform.lerp);
 
         let dist = move_toward(
             &mut current,

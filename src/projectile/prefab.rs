@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
 
-use super::{Bounce, Projectile, ProjectileBundle, SineWave, Squish, TimeToLive};
+use super::{Bounce, NoHurt, Projectile, ProjectileBundle, SineWave, Squish, TimeToLive};
 
 use crate::enemy::Hostility;
 use crate::GameAssets;
@@ -38,9 +38,12 @@ impl ProjectilePrefab {
         &self,
         world: &mut World,
         assets: &GameAssets,
-        location: Vec3,
+        mut location: Vec3,
         hostility: Hostility,
     ) {
+        // we want projectiles to be as obvious as possible
+        location.z = 100.;
+
         match self {
             ProjectilePrefab::QuarterRest { initial_velocity } => {
                 let rot = initial_velocity.y.atan2(initial_velocity.x);
@@ -66,6 +69,7 @@ impl ProjectilePrefab {
                     TextureAtlasSprite::new(0),
                     VisibilityBundle::default(),
                     TimeToLive::default(),
+                    NoHurt::default(),
                 ));
             }
             ProjectilePrefab::QuarterNote { initial_velocity } => {

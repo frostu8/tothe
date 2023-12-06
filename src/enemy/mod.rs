@@ -28,6 +28,7 @@ impl Plugin for EnemyPlugin {
                 check_for_enemy_hits
                     .in_set(EnemySystem::RegisterHits)
                     .before(ProjectileSystem::Despawn)
+                    .after(ProjectileSystem::Bounce)
                     .after(ProjectileSystem::Event),
             )
             .add_systems(Update, tint_dying_enemies.after(EnemySystem::RegisterHits));
@@ -70,7 +71,19 @@ impl Default for EnemyBundle {
 
 /// A marker component for enemies.
 #[derive(Clone, Component, Debug, Default)]
-pub struct Enemy;
+pub struct Enemy {
+    /// Registers projectile hits but doesn't actually die.
+    pub invincible: bool,
+}
+
+impl Enemy {
+    /// Creates a new [invincible] enemy.
+    ///
+    /// [invincible]: Enemy::invincible
+    pub fn invincible() -> Enemy {
+        Enemy { invincible: true }
+    }
+}
 
 /// Sends an [`ActivateEvent`] on death.
 #[derive(Clone, Component, Debug, Default)]
@@ -99,6 +112,21 @@ pub enum Hostility {
 }
 
 impl Hostility {
+    /// Returns the collision groups appropriate for a projectile of this
+    /// hostility.
+    pub fn collision_groups_projectile(self) -> CollisionGroups {
+        match self {
+            Hostility::Friendly => CollisionGroups::new(
+                physics::COLLISION_GROUP_PROJECTILE,
+                physics::COLLISION_GROUP_SOLID | physics::COLLISION_GROUP_HOSTILE,
+            ),
+            Hostility::Hostile => CollisionGroups::new(
+                physics::COLLISION_GROUP_PROJECTILE,
+                physics::COLLISION_GROUP_SOLID | physics::COLLISION_GROUP_FRIENDLY,
+            ),
+        }
+    }
+
     /// Returns the associated color of the `Hostility`.
     pub const fn color(self) -> Color {
         match self {
@@ -141,10 +169,10 @@ fn check_for_enemy_hits(
     mut commands: Commands,
     mut projectile_hit_events: EventReader<HitEvent>,
     mut projectile_query: Query<&mut Projectile>,
-    enemies_query: Query<Entity, (With<Enemy>, Without<DeathTimer>)>,
+    enemies_query: Query<(Entity, &Enemy), Without<DeathTimer>>,
 ) {
     for ev in projectile_hit_events.iter() {
-        let Ok(enemy_entity) = enemies_query.get(ev.entity) else {
+        let Ok((enemy_entity, enemy)) = enemies_query.get(ev.entity) else {
             continue;
         };
 
@@ -153,7 +181,9 @@ fn check_for_enemy_hits(
             projectile.absorbed = true;
         }
 
-        commands.entity(enemy_entity).insert(DeathTimer::default());
+        if !enemy.invincible {
+            commands.entity(enemy_entity).insert(DeathTimer::default());
+        }
     }
 }
 

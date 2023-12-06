@@ -17,6 +17,7 @@ use crate::interactions::{
     generator::Generator,
     Buldge, Junction,
 };
+use crate::physics;
 use crate::projectile::prefab::ProjectilePrefab;
 
 /// Creates pipes from LDTK levels.
@@ -26,16 +27,28 @@ pub struct LevelPipePlugin;
 
 impl Plugin for LevelPipePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, mark_pipes_layer).add_systems(
-            PostUpdate,
-            (merge_pipes_down, build_pipe_network).before(TransformSystem::TransformPropagate),
-        );
+        app.add_systems(Update, mark_pipes_layer)
+            .add_systems(
+                PostUpdate,
+                (merge_pipes_down, build_pipe_network)
+                    .in_set(LevelPipeSystem::MergePipes)
+                    .before(TransformSystem::TransformPropagate),
+            )
+            .add_systems(
+                PostUpdate,
+                create_pipe_segment_collision.after(LevelPipeSystem::MergePipes),
+            );
     }
 
     fn finish(&self, app: &mut App) {
         app.register_default_ldtk_int_cell_for_layer::<PipeSegmentBundle>("Pipes")
             .register_default_ldtk_entity_for_layer::<PipeEntityBundle>("PipeEntities");
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub enum LevelPipeSystem {
+    MergePipes,
 }
 
 /// A bundle for pipe segments.
@@ -92,6 +105,7 @@ impl PipeEntity {
 
                 PipeEntity::ChuteVertical(*direction)
             }
+            "PipeExitRight" => PipeEntity::Exit(Direction::Right),
             _ => panic!("invalid identifier"),
         }
     }
@@ -100,6 +114,7 @@ impl PipeEntity {
     pub fn texture_index(&self) -> u32 {
         match self {
             PipeEntity::Exit(Direction::Left) => 0,
+            PipeEntity::Exit(Direction::Right) => 6,
             PipeEntity::ChuteVertical(_) => 10,
             _ => todo!(),
         }
@@ -213,6 +228,7 @@ fn merge_pipes_down(
                 PipeEntity::Exit(direction) => {
                     let location = match direction {
                         Direction::Left => Vec3::new(-8., -6., 0.),
+                        Direction::Right => Vec3::new(8., -6., 0.),
                         _ => todo!(),
                     };
 
@@ -234,6 +250,31 @@ fn merge_pipes_down(
             // delete old pipeentity
             commands.entity(new_pipe_entity).remove::<PipeEntity>();
         }
+    }
+}
+
+// TODO: This is dumb and stupid but I have 5 hours to make a game.
+fn create_pipe_segment_collision(
+    mut commands: Commands,
+    pipe_segment_query: Query<(Entity, &TileTextureIndex), With<PipeSegment>>,
+) {
+    for (entity, tile_idx) in pipe_segment_query.iter() {
+        let collider = match tile_idx.0 {
+            // straight horizontal tubes
+            1..=3 => Collider::cuboid(8., 6.),
+            // straight vertical tubes
+            8 => Collider::cuboid(6., 8.),
+            // elbows (this is cheating)
+            19 | 20 | 25 | 26 => Collider::cuboid(6., 6.),
+            _ => continue,
+        };
+
+        let collision_groups = CollisionGroups::new(physics::COLLISION_GROUP_SOLID, Group::all());
+
+        commands
+            .entity(entity)
+            .insert(collider)
+            .insert(collision_groups);
     }
 }
 
