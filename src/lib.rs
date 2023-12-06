@@ -5,9 +5,10 @@ pub mod enemy;
 pub mod interactions;
 pub mod level;
 pub mod physics;
+pub mod platform;
 pub mod player;
 pub mod projectile;
-//pub mod ui;
+pub mod ui;
 
 use bevy::prelude::*;
 
@@ -24,17 +25,21 @@ impl Plugin for GamePlugin {
             .add_plugins((
                 camera::CameraPlugin,
                 camera::hint::CameraHintPlugin,
+                camera::cursor::CameraCursorPlugin,
                 level::LevelPlugin,
                 level::pipe::LevelPipePlugin,
                 projectile::ProjectilePlugin,
                 projectile::residue::ResiduePlugin,
                 projectile::spawner::ProjectileSpawnerPlugin,
                 physics::PhysicsPlugin,
+                platform::MovingPlatformPlugin,
                 player::PlayerPlugin,
                 player::controller::ControllerPlugin,
                 player::respawn::RespawnPlugin,
                 interactions::InteractionPlugins,
+                ui::UiPlugin,
             ))
+            .add_plugins((enemy::EnemyPlugin, enemy::prefab::EnemyPrefabPlugin))
             .add_loading_state(
                 LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::InGame),
             )
@@ -48,16 +53,26 @@ impl Plugin for GamePlugin {
 pub struct GameAssets {
     #[asset(path = "world/world.ldtk")]
     pub world: Handle<LdtkAsset>,
+    #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 3, rows = 2))]
+    #[asset(path = "world/platform.png")]
+    pub platform_atlas: Handle<TextureAtlas>,
     #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 2, rows = 1))]
     #[asset(path = "player/player.png")]
     pub player_sheet: Handle<TextureAtlas>,
     #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 6, rows = 4))]
     #[asset(path = "projectiles/projectiles.png")]
     pub projectile_sheet: Handle<TextureAtlas>,
+    #[asset(texture_atlas(tile_size_x = 32., tile_size_y = 24., columns = 7, rows = 1))]
+    #[asset(path = "enemy/howard/howard.png")]
+    pub enemy_howard: Handle<TextureAtlas>,
     #[asset(path = "signal/signal_matte.png")]
     pub signal_matte: Handle<Image>,
     #[asset(path = "signal/signal_mask.png")]
     pub signal_mask: Handle<Image>,
+    #[asset(path = "player/crosshair.png")]
+    pub crosshair: Handle<Image>,
+    #[asset(path = "player/crosshair_beta.png")]
+    pub crosshair_beta: Handle<Image>,
 }
 
 /// Game state.

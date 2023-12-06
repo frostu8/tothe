@@ -1,5 +1,6 @@
 //! Camera follow and movement.
 
+pub mod cursor;
 pub mod hint;
 
 use bevy::core_pipeline::clear_color::ClearColorConfig;
@@ -217,6 +218,7 @@ fn spawn_camera(mut commands: Commands) {
             },
             ..Default::default()
         },
+        cursor::CursorWorldPosition::default(),
         Follow::default(),
         PlayerCamera::default(),
         Constrained::default(),

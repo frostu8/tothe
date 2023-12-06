@@ -102,7 +102,7 @@ impl Plugin for PipePlugin {
                 Update,
                 signal_travel.in_set(InteractionSystem::TravelSignal),
             );
-            //.add_systems(Update, debug_draw_pipes);
+        //.add_systems(Update, debug_draw_pipes);
     }
 }
 

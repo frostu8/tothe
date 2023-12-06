@@ -1,7 +1,7 @@
 //! Visual signals.
 
-use bevy::prelude::*;
 use bevy::ecs::system::SystemParam;
+use bevy::prelude::*;
 
 use super::{InteractionSystem, Signal};
 
@@ -15,17 +15,14 @@ pub struct VisualSignalPlugin;
 
 impl Plugin for VisualSignalPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(
-                Update,
-                create_signal_visual
-                    .run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                Update,
-                update_signal_transform
-                    .after(InteractionSystem::TravelSignal),
-            );
+        app.add_systems(
+            Update,
+            create_signal_visual.run_if(in_state(GameState::InGame)),
+        )
+        .add_systems(
+            Update,
+            update_signal_transform.after(InteractionSystem::TravelSignal),
+        );
     }
 }
 
@@ -114,10 +111,12 @@ fn create_signal_visual(
 ) {
     for entity in new_signal_query.iter() {
         // create buldge matte
-        commands.spawn(SpriteBundle {
-            texture: assets.signal_matte.clone(),
-            ..Default::default()
-        }).set_parent(entity);
+        commands
+            .spawn(SpriteBundle {
+                texture: assets.signal_matte.clone(),
+                ..Default::default()
+            })
+            .set_parent(entity);
     }
 }
 
@@ -157,4 +156,3 @@ fn update_signal_transform(
         //gizmos.circle(transform.translation, Vec3::Z, scale * 4., Color::BLUE);
     }
 }
-

@@ -27,6 +27,16 @@ impl Plugin for LevelPlugin {
     }
 }
 
+/// A component that identifies an entity by its instance identifier.
+#[derive(Clone, Component, Debug, Default)]
+pub struct Iid(pub String);
+
+impl From<&EntityInstance> for Iid {
+    fn from(e: &EntityInstance) -> Iid {
+        Iid(e.iid.clone())
+    }
+}
+
 /// A bundle that indicates a region of collision..
 #[derive(Bundle, LdtkIntCell)]
 pub struct CollisionBundle {

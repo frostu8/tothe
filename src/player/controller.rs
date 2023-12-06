@@ -1,11 +1,12 @@
 //! Player physics controller.
 
+use bevy::input::gamepad::{GamepadConnection, GamepadConnectionEvent};
 use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
 
+use crate::camera::{cursor::CursorWorldPosition, PlayerCamera};
 use crate::physics::{Grounded, PhysicsSet};
-//use crate::camera::PlayerCamera;
 use crate::projectile::spawner::{SpawnProjectile, Spawner, SpawnerSystem};
 
 use std::time::Duration;
@@ -83,8 +84,14 @@ impl ControllerOptions {
 #[derive(Component, Default)]
 pub struct UseGamepad(Option<Gamepad>);
 
+impl UseGamepad {
+    pub fn has_gamepad(&self) -> bool {
+        self.0.is_some()
+    }
+}
+
 /// A component that translates player input into physics movement.
-#[derive(Component, Default)]
+#[derive(Component)]
 pub struct Controller {
     x_movement: f32,
     jump: bool,
@@ -94,6 +101,11 @@ pub struct Controller {
 }
 
 impl Controller {
+    /// Gets the direction the player is pointing.
+    pub fn shoot_dir(&self) -> Vec2 {
+        self.shoot_dir
+    }
+
     /// Sets the jump timer.
     ///
     /// This happens when the user presses a button to jump. Instead of a dumb
@@ -106,6 +118,18 @@ impl Controller {
     /// Checks if there is a buffered jump.
     pub fn buffered_jump(&self) -> bool {
         !self.jump_buffer.finished()
+    }
+}
+
+impl Default for Controller {
+    fn default() -> Controller {
+        Controller {
+            x_movement: 0.,
+            jump: false,
+            jump_buffer: Timer::default(),
+            shoot: false,
+            shoot_dir: Vec2::X,
+        }
     }
 }
 
@@ -175,27 +199,47 @@ fn tick_coyote_jump_timer(
 
 fn detect_gamepad(
     mut use_gamepad_query: Query<(DebugName, &mut UseGamepad)>,
-    gamepads: Res<Gamepads>,
+    mut gamepad_connected_events: EventReader<GamepadConnectionEvent>,
 ) {
-    for (name, mut use_gamepad) in use_gamepad_query.iter_mut() {
-        if use_gamepad.0.is_none() {
-            // find gamepad
-            if let Some(new_gamepad) = gamepads.iter().next() {
-                bevy::log::info!("found gamepad {:?} for {:?}", new_gamepad, name);
-                use_gamepad.0 = Some(new_gamepad);
+    for ev in gamepad_connected_events.iter() {
+        match &ev.connection {
+            GamepadConnection::Connected(_) => {
+                for (name, mut use_gamepad) in use_gamepad_query.iter_mut() {
+                    if use_gamepad.0.is_none() {
+                        // add gamepad
+                        use_gamepad.0 = Some(ev.gamepad);
+                        bevy::log::info!("connected gamepad {:?} to player {:?}", ev.gamepad, name);
+                    }
+                }
+            }
+            GamepadConnection::Disconnected => {
+                // remove gameapd
+                for (name, mut use_gamepad) in use_gamepad_query.iter_mut() {
+                    if use_gamepad.0 == Some(ev.gamepad) {
+                        // add gamepad
+                        use_gamepad.0 = None;
+                        bevy::log::info!("connected gamepad from player {:?}", name);
+                    }
+                }
             }
         }
     }
 }
 
 fn scan_input(
-    mut query: Query<(&mut Controller, &ControllerOptions, Option<&UseGamepad>)>,
+    mut query: Query<(
+        &GlobalTransform,
+        &mut Controller,
+        &ControllerOptions,
+        Option<&UseGamepad>,
+    )>,
+    cursor_query: Query<&CursorWorldPosition, With<PlayerCamera>>,
     gamepad_button: Res<Input<GamepadButton>>,
     gamepad_axis: Res<Axis<GamepadAxis>>,
     keyboard: Res<Input<KeyCode>>,
     mouse: Res<Input<MouseButton>>,
 ) {
-    for (mut controller, options, gamepad) in query.iter_mut() {
+    for (transform, mut controller, options, gamepad) in query.iter_mut() {
         let gamepad = gamepad.and_then(|g| g.0);
 
         // x movement
@@ -266,13 +310,15 @@ fn scan_input(
                 let result = Vec2::new(x, y);
 
                 // shoot direction must always have a direction
-                if result.length_squared() > 0. {
+                if result.length_squared() > 0.1 {
                     controller.shoot_dir = result.normalize();
                 }
             }
-        } else {
-            // TODO: mouse and keyboard shit
-            controller.shoot_dir = Vec2::new(0., 0.);
+        } else if let Ok(cursor_pos) = cursor_query.get_single() {
+            let rel_pos = cursor_pos.0 - transform.translation().truncate();
+
+            // normalize
+            controller.shoot_dir = rel_pos.normalize();
         }
     }
 }

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
 
-use super::{Bounce, Squish, Projectile, ProjectileBundle, SineWave, TimeToLive};
+use super::{Bounce, Projectile, ProjectileBundle, SineWave, Squish, TimeToLive};
 
 use crate::enemy::Hostility;
 use crate::GameAssets;
@@ -109,37 +109,39 @@ impl ProjectilePrefab {
                 ));
             }
             ProjectilePrefab::BeamNote { initial_direction } => {
-                world.spawn((
-                    ProjectileBundle {
-                        transform: Transform::from_translation(location),
-                        gravity_scale: GravityScale(0.5),
-                        projectile: Projectile {
-                            //initial_speed: initial_velocity.length(),
+                world
+                    .spawn((
+                        ProjectileBundle {
+                            transform: Transform::from_translation(location),
+                            gravity_scale: GravityScale(0.5),
+                            projectile: Projectile {
+                                //initial_speed: initial_velocity.length(),
+                                ..Default::default()
+                            },
+                            collider: Collider::cuboid(2., 2.),
+                            hostility,
                             ..Default::default()
                         },
-                        collider: Collider::cuboid(2., 2.),
-                        hostility,
-                        ..Default::default()
-                    },
-                    Velocity {
-                        linvel: Vec2::new(*initial_direction, 0.),
-                        angvel: 0.,
-                    },
-                    Bounce::default(),
-                    LockedAxes::ROTATION_LOCKED,
-                    VisibilityBundle::default(),
-                    TimeToLive::default(),
-                )).with_children(|parent| {
-                    parent.spawn((
-                        SpriteSheetBundle {
-                            texture_atlas: assets.projectile_sheet.clone(),
-                            sprite: TextureAtlasSprite::new(1),
-                            ..Default::default()
+                        Velocity {
+                            linvel: Vec2::new(*initial_direction, 0.),
+                            angvel: 0.,
                         },
-                        hostility,
-                        Squish::default(),
-                    ));
-                });
+                        Bounce::default(),
+                        LockedAxes::ROTATION_LOCKED,
+                        VisibilityBundle::default(),
+                        TimeToLive::default(),
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            SpriteSheetBundle {
+                                texture_atlas: assets.projectile_sheet.clone(),
+                                sprite: TextureAtlasSprite::new(1),
+                                ..Default::default()
+                            },
+                            hostility,
+                            Squish::default(),
+                        ));
+                    });
             }
         }
     }

@@ -303,10 +303,7 @@ fn bounce_projectiles(
     }
 }
 
-fn animate_squish(
-    mut squish_query: Query<(&mut Transform, &mut Squish)>,
-    time: Res<Time>,
-) {
+fn animate_squish(mut squish_query: Query<(&mut Transform, &mut Squish)>, time: Res<Time>) {
     for (mut transform, mut squish) in squish_query.iter_mut() {
         transform.scale.y = squish.squish;
 
@@ -339,15 +336,15 @@ fn update_collision_groups(
 }
 
 fn update_sprite_color(
-    projectile_query: Query<
-        (Entity, &Hostility),
-        (With<Projectile>, Changed<Hostility>),
-    >,
+    projectile_query: Query<(Entity, &Hostility), (With<Projectile>, Changed<Hostility>)>,
     children_query: Query<&Children>,
     mut texture_atlas_query: Query<&mut TextureAtlasSprite>,
 ) {
     for (proj_entity, hostility) in projectile_query.iter() {
-        for entity in children_query.iter_descendants(proj_entity).chain(std::iter::once(proj_entity)) {
+        for entity in children_query
+            .iter_descendants(proj_entity)
+            .chain(std::iter::once(proj_entity))
+        {
             if let Ok(mut sprite) = texture_atlas_query.get_mut(entity) {
                 sprite.color = hostility.color();
             }

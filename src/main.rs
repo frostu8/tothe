@@ -1,7 +1,7 @@
+use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
 use bevy::input::gamepad::{AxisSettings, GamepadSettings};
 use bevy::prelude::*;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
-use bevy::ecs::schedule::{ScheduleBuildSettings, LogLevel};
 
 use bevy_ecs_ldtk::prelude::*;
 
@@ -32,15 +32,12 @@ fn main() {
                     },
                 }),
         )
-        .edit_schedule(
-            Update,
-            |schedule| {
-                schedule.set_build_settings(ScheduleBuildSettings {
-                    ambiguity_detection: LogLevel::Warn,
-                    ..Default::default()
-                });
-            },
-        )
+        .edit_schedule(Update, |schedule| {
+            schedule.set_build_settings(ScheduleBuildSettings {
+                ambiguity_detection: LogLevel::Warn,
+                ..Default::default()
+            });
+        })
         .add_plugins(LdtkPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(8.0))
         //.add_plugins(RapierDebugRenderPlugin::default())
@@ -58,10 +55,10 @@ fn main() {
             },
             ..Default::default()
         })
-        .insert_resource(GamepadSettings {
+        /*.insert_resource(GamepadSettings {
             default_axis_settings: AxisSettings::new(-1., -0.3, 0.3, 1., 0.05)
                 .expect("valid axis settings"),
             ..Default::default()
-        })
+        })*/
         .run();
 }
