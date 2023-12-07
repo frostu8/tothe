@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 use collision::{CollisionMap, CreatedCollider, LevelCollisionPlugin, LevelCollisionSystem};
 
-use crate::enemy::Enemy;
+use crate::enemy::{Enemy, Hostility};
 use crate::physics;
 
 pub struct LevelPlugin;
@@ -140,6 +140,7 @@ fn make_spikes_deadly(
                 physics::COLLISION_GROUP_SOLID | physics::COLLISION_GROUP_HOSTILE,
                 Group::all(),
             ))
+            .insert(Hostility::Hostile)
             .insert(Enemy::invincible());
     }
 }

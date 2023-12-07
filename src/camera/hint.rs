@@ -91,7 +91,6 @@ fn create_hint_entity(
     new_entity_query: Query<(Entity, Option<&Parent>, &CameraHint), Added<CameraHint>>,
 ) {
     for (entity, parent, camera_hint) in new_entity_query.iter() {
-        bevy::log::info!("Wtscallop");
         let parent = parent.map(|p| p.get());
 
         // create the hint entity

@@ -90,6 +90,10 @@ pub enum PipeEntity {
     ///
     /// * `direction`: direction of exiting projectiles.
     ChuteVertical(f32),
+    /// A horizontal chute.
+    ///
+    /// * `direction`: direction of exiting projectiles.
+    ChuteHorizontal(f32),
 }
 
 impl PipeEntity {
@@ -105,6 +109,11 @@ impl PipeEntity {
 
                 PipeEntity::ChuteVertical(*direction)
             }
+            "PipeChuteHorizontal" => {
+                let direction = inst.get_float_field("Direction").expect("valid direction");
+
+                PipeEntity::ChuteHorizontal(*direction)
+            }
             "PipeExitRight" => PipeEntity::Exit(Direction::Right),
             _ => panic!("invalid identifier"),
         }
@@ -116,6 +125,7 @@ impl PipeEntity {
             PipeEntity::Exit(Direction::Left) => 0,
             PipeEntity::Exit(Direction::Right) => 6,
             PipeEntity::ChuteVertical(_) => 10,
+            PipeEntity::ChuteHorizontal(_) => 4, // TODO: random chutes
             _ => todo!(),
         }
     }
@@ -221,6 +231,24 @@ fn merge_pipes_down(
                             location: Vec3::new(9f32.copysign(*dir), 0., 0.),
                         },
                         Name::new("ChuteVertical"),
+                        Junction::default(),
+                        Buldge::no_cover(),
+                    ));
+                }
+                PipeEntity::ChuteHorizontal(dir) => {
+                    commands.entity(entity).insert((
+                        AcceptorBundle {
+                            collider: Collider::cuboid(8., 6.),
+                            acceptor: Acceptor,
+                        },
+                        Generator {
+                            prefab: ProjectilePrefab::QuarterNote {
+                                // TODO: magic number
+                                initial_velocity: Vec2::new(0., *dir) * 128.,
+                            },
+                            location: Vec3::new(0., 9f32.copysign(*dir), 0.),
+                        },
+                        Name::new("ChuteHorizontal"),
                         Junction::default(),
                         Buldge::no_cover(),
                     ));

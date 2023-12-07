@@ -1,4 +1,4 @@
-//! Respawn things.
+//! Respawn things for the player.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -8,18 +8,38 @@ use bevy_ecs_ldtk::{app::LdtkEntityAppExt, LdtkEntity, LdtkLevel, LevelSelection
 use std::collections::HashMap;
 use std::time::Duration;
 
+use super::{LocalPlayer, controller::ControllerOptions};
+
+use crate::{GameState, GameAssets, spawn_world};
+
 pub struct RespawnPlugin;
 
 impl Plugin for RespawnPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CheckpointMap>()
-            .add_systems(Update, (tick_respawn_timer, respawn))
+            .init_resource::<WorldRespawn>()
+            .add_systems(
+                Update,
+                world_respawn
+                    .run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                Update,
+                respawn
+                    .run_if(in_state(GameState::InGame))
+                    .in_set(RespawnSystem::Respawn),
+            )
             .add_systems(Update, update_checkpoints);
     }
 
     fn finish(&self, app: &mut App) {
         app.register_ldtk_entity::<CheckpointBundle>("Checkpoint");
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub enum RespawnSystem {
+    Respawn,
 }
 
 /// A timer for player respawns.
@@ -37,11 +57,53 @@ impl Respawn {
             respawned: false,
         }
     }
+
+    /// Resets the respawn timer.
+    pub fn start_respawn(&mut self) {
+        self.timer.reset();
+        self.respawned = false;
+    }
 }
 
 impl Default for Respawn {
     fn default() -> Respawn {
-        Respawn::new(Duration::from_millis(400))
+        Respawn::new(Duration::from_millis(200))
+    }
+}
+
+/// A timer to respawn the whole world.
+#[derive(Resource)]
+pub struct WorldRespawn {
+    /// How long it takes until the world is respawned starting from when this
+    /// resource is first notified.
+    pub duration: Duration,
+    timer: Timer,
+    post_timer: Timer,
+    finished: bool,
+}
+
+impl WorldRespawn {
+    /// Creates a new `WorldRespawn` with a respawn duration.
+    pub fn new(duration: Duration) -> WorldRespawn {
+        WorldRespawn {
+            duration: duration.clone(),
+            timer: Timer::new(duration, TimerMode::Once),
+            post_timer: Timer::new(duration, TimerMode::Once),
+            finished: true,
+        }
+    }
+
+    /// Sets the respawn timer.
+    pub fn start_respawn(&mut self) {
+        self.timer.reset();
+        self.post_timer.reset();
+        self.finished = false;
+    }
+}
+
+impl Default for WorldRespawn {
+    fn default() -> WorldRespawn {
+        WorldRespawn::new(Duration::from_millis(200))
     }
 }
 
@@ -106,28 +168,72 @@ fn update_checkpoints(
     }
 }
 
-fn tick_respawn_timer(mut timer_query: Query<&mut Respawn>, time: Res<Time>) {
-    for mut respawn in timer_query.iter_mut() {
-        respawn.timer.tick(time.delta());
+fn world_respawn(
+    mut commands: Commands,
+    mut world_respawn: ResMut<WorldRespawn>,
+    game_world_query: Query<Entity, With<crate::GameWorld>>,
+    mut curtain_query: Query<&mut crate::ui::Curtain>,
+    mut respawn_timer_query: Query<&mut Respawn, With<LocalPlayer>>,
+    assets: Res<GameAssets>,
+    time: Res<Time>,
+) {
+    if world_respawn.finished {
+        if !world_respawn.post_timer.finished() {
+            world_respawn.post_timer.tick(time.delta());
+
+            if let Ok(mut curtain) = curtain_query.get_single_mut() {
+                curtain.stage = -world_respawn.post_timer.percent();
+            }
+        }
+
+        return;
+    }
+
+    if world_respawn.timer.finished() {
+        // try to respawn world
+        for entity in game_world_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        spawn_world(commands, assets);
+
+        world_respawn.finished = true;
+    } else {
+        // TODO: weird player spawn hack
+        if world_respawn.timer.percent() < f32::EPSILON {
+            for mut respawn in respawn_timer_query.iter_mut() {
+                respawn.start_respawn();
+            }
+        }
+
+        world_respawn.timer.tick(time.delta());
+
+        if let Ok(mut curtain) = curtain_query.get_single_mut() {
+            curtain.stage = world_respawn.timer.percent_left();
+        }
     }
 }
 
 fn respawn(
-    mut player_query: Query<(&mut Transform, &mut Visibility, &mut Respawn)>,
+    mut player_query: Query<(&mut Transform, &mut Visibility, &mut ControllerOptions, &mut Respawn)>,
     current_checkpoint: CurrentCheckpoint,
+    time: Res<Time>,
 ) {
-    let Some(respawn_pos) = current_checkpoint.position() else {
-        return;
-    };
+    let respawn_pos = current_checkpoint.position();
 
-    for (mut transform, mut visibility, mut respawn) in player_query.iter_mut() {
-        if respawn.timer.just_finished() {
-            // respawn player
-            *visibility = Visibility::Visible;
-            *transform =
-                Transform::from_translation(respawn_pos.translation() + Vec3::new(8., 8., 0.));
+    for (mut transform, mut visibility, mut controller, mut respawn) in player_query.iter_mut() {
+        respawn.timer.tick(time.delta());
 
-            respawn.respawned = true;
+        if let Some(respawn_pos) = &respawn_pos {
+            if respawn.timer.finished() && !respawn.respawned {
+                // respawn player
+                *visibility = Visibility::Visible;
+                controller.enabled = true;
+                *transform =
+                    Transform::from_translation(respawn_pos.translation());
+
+                respawn.respawned = true;
+            }
         }
     }
 }

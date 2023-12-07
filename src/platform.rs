@@ -23,8 +23,8 @@ pub struct MovingPlatformPlugin;
 impl Plugin for MovingPlatformPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ActivateEvent>()
+            .register_type::<MovingPlatform>()
             .register_ldtk_entity::<MovingPlatformBundle>("MovingPlatform")
-            .add_systems(PostUpdate, on_added_platform)
             .add_systems(
                 Update,
                 update_platform_width
@@ -107,7 +107,7 @@ impl LdtkEntity for MovingPlatformBundle {
 
         let start_position = ldtk_pixel_coords_to_translation_pivoted(
             entity_instance.px,
-            layer_instance.c_hei,
+            layer_instance.c_hei * layer_instance.grid_size,
             IVec2::new(entity_instance.width, entity_instance.height),
             entity_instance.pivot,
         );
@@ -142,7 +142,7 @@ impl LdtkEntity for MovingPlatformBundle {
 /// A moving platform.
 ///
 /// Scaling this horizontally will tile it in a special way.
-#[derive(Clone, Component, Debug)]
+#[derive(Clone, Component, Debug, Reflect)]
 pub struct MovingPlatform {
     /// How fast the platform will travel until it reaches its destination, in
     /// world units per second.
@@ -203,14 +203,6 @@ pub struct PlatformWidth(usize);
 
 #[derive(Clone, Component, Debug)]
 struct PlatformGear;
-
-fn on_added_platform(
-    mut added_platforms: Query<(&Transform, &mut MovingPlatform), Added<MovingPlatform>>,
-) {
-    for (transform, mut platform) in added_platforms.iter_mut() {
-        platform.start_location = transform.translation.truncate();
-    }
-}
 
 fn listen_for_activation(
     mut activation_events: EventReader<ActivateEvent>,
@@ -281,8 +273,6 @@ fn update_platform_width(
 
             let transform = Transform::from_xyz(x, 0., 0.)
                 * Transform::from_scale(Vec3::new(1. / scale, 1., 1.));
-
-            bevy::log::info!("transform = {:?}", transform);
 
             let mut entity = commands.spawn(SpriteSheetBundle {
                 transform,

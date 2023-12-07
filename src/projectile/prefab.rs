@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use bevy_rapier2d::prelude::*;
 
-use super::{Bounce, NoHurt, Projectile, ProjectileBundle, SineWave, Squish, TimeToLive};
+use super::{Bounce, NoHurt, NoCollide, SolidProjectile, Projectile, ProjectileBundle, SineWave, Squish, TimeToLive};
 
 use crate::enemy::Hostility;
 use crate::GameAssets;
@@ -24,6 +24,8 @@ pub enum ProjectilePrefab {
     /// A beam note that bouncess. If the direction is `0`, it will choose a
     /// random direction to bounce into.
     BeamNote { initial_direction: f32 },
+    /// A beat is a wide note that serves as a platform.
+    Beat { initial_velocity: Vec2 },
 }
 
 impl ProjectilePrefab {
@@ -146,6 +148,29 @@ impl ProjectilePrefab {
                             Squish::default(),
                         ));
                     });
+            }
+            ProjectilePrefab::Beat { initial_velocity } => {
+                world.spawn((
+                    ProjectileBundle {
+                        transform: Transform::from_translation(location),
+                        gravity_scale: GravityScale(0.),
+                        projectile: Projectile::default(),
+                        rigidbody: RigidBody::KinematicVelocityBased,
+                        collider: Collider::cuboid(8., 1.),
+                        hostility,
+                        ..Default::default()
+                    },
+                    Velocity {
+                        linvel: *initial_velocity,
+                        angvel: 0.,
+                    },
+                    NoCollide::default(),
+                    SolidProjectile::default(),
+                    assets.projectile_sheet.clone(),
+                    TextureAtlasSprite::new(13),
+                    VisibilityBundle::default(),
+                    TimeToLive::default(),
+                ));
             }
         }
     }

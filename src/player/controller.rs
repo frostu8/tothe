@@ -17,6 +17,10 @@ pub struct ControllerPlugin;
 impl Plugin for ControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
+            PostUpdate,
+            enable_physics_for_controller,
+        )
+        .add_systems(
             Update,
             tick_coyote_jump_timer.before(ControllerSystem::Apply),
         )
@@ -59,6 +63,8 @@ pub struct ControllerBundle {
 /// A config for a [`Controller`].
 #[derive(Component, Default)]
 pub struct ControllerOptions {
+    /// Whether the controller is enabled.
+    pub enabled: bool,
     /// The max speed of the player.
     pub max_speed: f32,
     /// The deadzone of the player movement; prevents players from inching
@@ -176,6 +182,18 @@ impl CoyoteJump {
 impl Default for CoyoteJump {
     fn default() -> CoyoteJump {
         CoyoteJump::new(Duration::from_millis(100))
+    }
+}
+
+fn enable_physics_for_controller(
+    mut controller_query: Query<(&ControllerOptions, &mut RigidBody), Changed<Controller>>,
+) {
+    for (controller, mut rigidbody) in controller_query.iter_mut() {
+        if controller.enabled {
+            *rigidbody = RigidBody::Dynamic;
+        } else {
+            *rigidbody = RigidBody::Fixed;
+        }
     }
 }
 
@@ -337,6 +355,10 @@ fn apply_projectiles(
     mut spawn_projectile: EventWriter<SpawnProjectile>,
 ) {
     for (entity, controller, options, mut spawner) in query.iter_mut() {
+        if !options.enabled {
+            continue;
+        }
+
         spawner.initial_velocity = controller.shoot_dir * options.projectile_speed;
 
         if controller.shoot {
@@ -356,6 +378,10 @@ fn apply_movement(
     physics_options: Res<RapierConfiguration>,
 ) {
     for (controller, options, grounded, mut coyote_jump, mut velocity) in query.iter_mut() {
+        if !options.enabled {
+            continue;
+        }
+
         let ControllerOptions {
             max_speed,
             friction,

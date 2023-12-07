@@ -41,7 +41,7 @@ fn main() {
         .add_plugins(LdtkPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(8.0))
         //.add_plugins(RapierDebugRenderPlugin::default())
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
+        //.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins(GamePlugin)
         .insert_resource(LevelSelection::Identifier("Level_0".into()))
         .insert_resource(RapierConfiguration {

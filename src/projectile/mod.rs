@@ -135,6 +135,14 @@ impl ContactBehavior {
 #[derive(Clone, Component, Debug, Default)]
 pub struct NoHurt;
 
+/// Makes a projectile intangible to solids.
+#[derive(Clone, Component, Debug, Default)]
+pub struct NoCollide;
+
+/// Makes a projectile solid.
+#[derive(Clone, Component, Debug, Default)]
+pub struct SolidProjectile;
+
 /// Makes a projectile sway on a sine wave.
 #[derive(Clone, Component, Debug)]
 pub struct SineWave {
@@ -320,12 +328,15 @@ fn animate_squish(mut squish_query: Query<(&mut Transform, &mut Squish)>, time: 
 
 fn update_collision_groups(
     mut projectile_query: Query<
-        (&Hostility, &mut CollisionGroups, Option<&NoHurt>),
+        (&Hostility, &mut CollisionGroups, Option<&NoHurt>, Option<&NoCollide>, Option<&SolidProjectile>),
         (With<Projectile>, Changed<Hostility>),
     >,
 ) {
-    for (hostility, mut collision_groups, no_hurt) in projectile_query.iter_mut() {
+    for (hostility, mut collision_groups, no_hurt, no_collide, solid) in projectile_query.iter_mut() {
         let no_hurt = no_hurt.is_some();
+        let no_collide = no_collide.is_some();
+
+        let solid = solid.is_some();
 
         match *hostility {
             Hostility::Friendly => {
@@ -345,6 +356,17 @@ fn update_collision_groups(
         if no_hurt {
             collision_groups.filters &= !physics::COLLISION_GROUP_FRIENDLY;
             collision_groups.filters &= !physics::COLLISION_GROUP_HOSTILE;
+        }
+
+        if no_collide {
+            collision_groups.filters &= !physics::COLLISION_GROUP_SOLID;
+        }
+
+        if solid {
+            bevy::log::info!("solid boye");
+            collision_groups.memberships |= physics::COLLISION_GROUP_SOLID;
+            collision_groups.filters |= physics::COLLISION_GROUP_FRIENDLY;
+            collision_groups.filters |= physics::COLLISION_GROUP_HOSTILE;
         }
     }
 }
@@ -371,6 +393,7 @@ fn create_hit_events(
     mut hit_events: EventWriter<HitEvent>,
     projectile_query: Query<Entity, With<Projectile>>,
     behavior_query: Query<&ContactBehavior>,
+    hostility_query: Query<&Hostility>,
 ) {
     // technically this actually does nothing but copy data but it's nice to
     // have access to all of this easily
@@ -395,6 +418,16 @@ fn create_hit_events(
             .copied()
             .unwrap_or_default();
         let entity_behavior = behavior_query.get(entity).ok().copied().unwrap_or_default();
+
+        // do not send hit event if hostility are the same
+        // NOTE: still send if they are otherwise neutral
+        if let Ok(projectile_hostility) = hostility_query.get(projectile) {
+            if let Ok(entity_hostility) = hostility_query.get(entity) {
+                if entity_hostility == projectile_hostility {
+                    continue;
+                }
+            }
+        }
 
         hit_events.send(HitEvent {
             projectile,

@@ -52,6 +52,7 @@ pub struct EnemyBundle {
     pub computed_visibility: ComputedVisibility,
     pub collider: Collider,
     pub collision_groups: CollisionGroups,
+    pub hostility: Hostility,
     pub enemy: Enemy,
 }
 
@@ -64,6 +65,7 @@ impl Default for EnemyBundle {
             computed_visibility: ComputedVisibility::default(),
             collider: Collider::default(),
             collision_groups: CollisionGroups::new(physics::COLLISION_GROUP_HOSTILE, Group::all()),
+            hostility: Hostility::Hostile,
             enemy: Enemy::default(),
         }
     }

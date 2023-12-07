@@ -16,8 +16,13 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::InGame), setup_ui_elements)
+        app.register_type::<Curtain>()
+            .add_systems(OnEnter(GameState::InGame), setup_ui_elements)
             .add_systems(Update, scale_world_ui)
+            .add_systems(
+                Update,
+                do_wipe_effect.in_set(UiSystem::Effect),
+            )
             .add_systems(
                 Update,
                 (
@@ -30,10 +35,34 @@ impl Plugin for UiPlugin {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, SystemSet)]
+pub enum UiSystem {
+    /// Ui effects.
+    Effect,
+}
+
 /// Image elements that are scaled so that every pixel on the image is 1 pixel
 /// in the world.
 #[derive(Clone, Component, Debug, Default)]
 pub struct ScaleWorld;
+
+/// The wipe effect.
+#[derive(Clone, Component, Debug, Reflect)]
+pub struct Curtain {
+    /// The stage.
+    ///
+    /// `1.` for the wipe effect is on the far right, `-1.` for far left, `0.`
+    /// is concealing the screen.
+    pub stage: f32,
+}
+
+impl Default for Curtain {
+    fn default() -> Curtain {
+        Curtain {
+            stage: -1.,
+        }
+    }
+}
 
 /// The crosshair for the player.
 ///
@@ -52,12 +81,82 @@ pub struct PlayerCrosshair;
 pub struct BetaCrosshair(pub f32);
 
 fn setup_ui_elements(mut commands: Commands, assets: Res<GameAssets>) {
+    // create curtain container
+    let curtain_container = commands.spawn(NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            width: Val::Vw(150.),
+            left: Val::Vw(-25.),
+            ..Default::default()
+        },
+        ..Default::default()
+    }).id();
+
+    // create curtain
+    commands
+    .spawn((
+        NodeBundle {
+            z_index: ZIndex::Global(1),
+            ..Default::default()
+        },
+        Curtain::default(),
+    ))
+    .with_children(|parent| {
+        parent.spawn((
+            ImageBundle {
+                style: Style {
+                    justify_self: JustifySelf::Start,
+                    ..Default::default()
+                },
+                image: UiImage {
+                    texture: assets.conceal_wedge.clone(),
+                    flip_x: false,
+                    flip_y: false,
+                },
+                ..Default::default()
+            },
+            ScaleWorld,
+        ));
+        
+        parent.spawn((
+            ImageBundle {
+                style: Style {
+                    flex_grow: 1.,
+                    min_width: Val::Percent(0.),
+                    ..Default::default()
+                },
+                image: UiImage {
+                    texture: assets.conceal.clone(),
+                    flip_x: false,
+                    flip_y: false,
+                },
+                ..Default::default()
+            },
+        ));
+
+        parent.spawn((
+            ImageBundle {
+                style: Style {
+                    justify_self: JustifySelf::End,
+                    ..Default::default()
+                },
+                image: UiImage {
+                    texture: assets.conceal_wedge.clone(),
+                    flip_x: true,
+                    flip_y: true,
+                },
+                ..Default::default()
+            },
+            ScaleWorld,
+        ));
+    })
+    .set_parent(curtain_container);
+
     // create crosshair
     commands.spawn((
         ImageBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                display: Display::Flex,
                 ..Default::default()
             },
             image: UiImage {
@@ -90,6 +189,21 @@ fn setup_ui_elements(mut commands: Commands, assets: Res<GameAssets>) {
             BetaCrosshair(i as f32 * 16.),
             ScaleWorld,
         ));
+    }
+}
+
+fn do_wipe_effect(
+    // TODO: figure out why this doesn't work??
+    mut wipe_effect_query: Query<(&mut Style, &Curtain), Changed<Curtain>>,
+) {
+    for (mut style, curtain) in wipe_effect_query.iter_mut() {
+        style.width = Val::Percent((1. - curtain.stage.abs()) * 100.);
+
+        if curtain.stage < 0. {
+            style.left = Val::Percent(curtain.stage.abs() * 100.);
+        } else {
+            style.left = Val::Percent(0.);
+        }
     }
 }
 

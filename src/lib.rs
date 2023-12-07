@@ -1,6 +1,7 @@
 //! `tothe` library.
 
 pub mod camera;
+pub mod drum;
 pub mod enemy;
 pub mod interactions;
 pub mod level;
@@ -39,7 +40,11 @@ impl Plugin for GamePlugin {
                 interactions::InteractionPlugins,
                 ui::UiPlugin,
             ))
-            .add_plugins((enemy::EnemyPlugin, enemy::prefab::EnemyPrefabPlugin))
+            .add_plugins((
+                enemy::EnemyPlugin,
+                enemy::prefab::EnemyPrefabPlugin,
+                drum::DrumPlugin,
+            ))
             .add_loading_state(
                 LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::InGame),
             )
@@ -56,6 +61,8 @@ pub struct GameAssets {
     #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 3, rows = 2))]
     #[asset(path = "world/platform.png")]
     pub platform_atlas: Handle<TextureAtlas>,
+    #[asset(path = "world/drum.png")]
+    pub drum_image: Handle<Image>,
     #[asset(texture_atlas(tile_size_x = 16., tile_size_y = 16., columns = 2, rows = 1))]
     #[asset(path = "player/player.png")]
     pub player_sheet: Handle<TextureAtlas>,
@@ -73,6 +80,10 @@ pub struct GameAssets {
     pub crosshair: Handle<Image>,
     #[asset(path = "player/crosshair_beta.png")]
     pub crosshair_beta: Handle<Image>,
+    #[asset(path = "player/conceal.png")]
+    pub conceal: Handle<Image>,
+    #[asset(path = "player/conceal_wedge.png")]
+    pub conceal_wedge: Handle<Image>,
 }
 
 /// Game state.
@@ -83,10 +94,17 @@ pub enum GameState {
     InGame,
 }
 
+/// The main world.
+#[derive(Clone, Component, Default, Debug)]
+pub struct GameWorld;
+
 pub fn spawn_world(mut commands: Commands, assets: Res<GameAssets>) {
-    commands.spawn(LdtkWorldBundle {
-        ldtk_handle: assets.world.clone(),
-        //transform: Transform::from_scale(Vec3::splat(16.)),
-        ..Default::default()
-    });
+    commands.spawn((
+        LdtkWorldBundle {
+            ldtk_handle: assets.world.clone(),
+            //transform: Transform::from_scale(Vec3::splat(16.)),
+            ..Default::default()
+        },
+        GameWorld,
+    ));
 }
